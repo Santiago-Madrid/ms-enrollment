@@ -1,0 +1,21 @@
+server:
+  port: 9092 
+
+spring:
+  application:
+    name: ms-enrollment
+  datasource:
+    url: jdbc:mysql://localhost:3306/world_dance_enrollment
+    username: root
+    password: admin
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update 
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+security:
+  jwt:
+    secret-key: fx3VDiOxgojN6m3+9reMeoSdyPt7JOq0Zx67hKOIrHI= # 1 día en milisegundos
