@@ -2,8 +2,11 @@ package com.wd.ms_enrollment.controller;
 
 import com.wd.ms_enrollment.dto.RejectionRequest;
 import com.wd.ms_enrollment.service.EnrollmentService;
+import com.world_dance.wd_lib_common.dto.EnrollmentRequestDto;
 import com.world_dance.wd_lib_common.dto.EnrollmentResponseDto;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -13,18 +16,34 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/v1/enrollments")
 public class EnrollmentController {
 
     private final EnrollmentService enrollmentService;
 
-    public EnrollmentController(EnrollmentService enrollmentService) {
-        this.enrollmentService = enrollmentService;
+    @PostMapping("/inscribirse")
+    public ResponseEntity<EnrollmentResponseDto> registerUserToEvent(@Valid @RequestBody EnrollmentRequestDto request) {
+        EnrollmentResponseDto response = enrollmentService.registerUserToEvent(request);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
+
+
+
+
+
+
+
+
+
+
+
+
+/* 
     // RF-25 y RF-26: Inscribirse en categoría
     @PostMapping("/event/{eventId}/category/{categoryId}")
-    // @PreAuthorize("hasRole('PARTICIPANT')")
+    //  @PreAuthorize("hasRole('PARTICIPANT')")
     public ResponseEntity<EnrollmentResponseDto> enrollInEvent(
             @PathVariable Long eventId,
             @PathVariable Long categoryId,
@@ -76,4 +95,5 @@ public class EnrollmentController {
     // private Long extractUserIdFromPrincipal(Object principal) {
     //     return Long.valueOf(principal.toString());
     // }
+ */
 }
