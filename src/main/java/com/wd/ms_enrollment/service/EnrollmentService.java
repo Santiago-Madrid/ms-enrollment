@@ -1,9 +1,12 @@
 package com.wd.ms_enrollment.service;
 
+import com.wd.ms_enrollment.client.EventCategoryClient;
 import com.wd.ms_enrollment.repository.EnrollmentRepository;
 import com.wd.ms_enrollment.repository.UserEventRoleRepository;
+import com.world_dance.wd_lib_common.dto.ApproveEnrollmentRequestDto;
 import com.world_dance.wd_lib_common.dto.EnrollmentRequestDto;
 import com.world_dance.wd_lib_common.dto.EnrollmentResponseDto;
+import com.world_dance.wd_lib_common.dto.EventResponseDto;
 import com.world_dance.wd_lib_common.entity.Enrollment;
 import com.world_dance.wd_lib_common.entity.UserEventRole;
 import com.world_dance.wd_lib_common.enums.EnrollmentStatus;
@@ -18,6 +21,7 @@ public class EnrollmentService {
 
     private final EnrollmentRepository enrollmentRepository;
     private final UserEventRoleRepository userEventRoleRepository;
+    private final EventCategoryClient eventCategoryClient;
 
     public EnrollmentResponseDto registerUserToEvent(EnrollmentRequestDto request) {
 
@@ -58,7 +62,7 @@ public class EnrollmentService {
 
         Enrollment savedEnrollment = enrollmentRepository.save(newEnrollment);
 
-        // 4. Mapear y retornar la respuesta final
+        // Mapear y retornar la respuesta final
         return EnrollmentResponseDto.builder()
                 .enrollmentId(savedEnrollment.getId())
                 .userId(savedEnrollment.getUserId())
@@ -71,11 +75,52 @@ public class EnrollmentService {
     }
 
 
+    
 
 
+    public EnrollmentResponseDto approveOrRejectEnrollment(ApproveEnrollmentRequestDto request, Long authenticatedUserId) {
 
+    // 1. Obtener la inscripción por ID
+    Enrollment enrollment = enrollmentRepository.findById(request.getEnrollmentId())
+            .orElseThrow(() -> new IllegalArgumentException("No se encontró la inscripción especificada."));
 
+    // 2. Consultar el evento en el microservicio event-category usando OpenFeign
+    EventResponseDto event = eventCategoryClient.getEventById(enrollment.getEventId());
 
+    if (event == null) {
+        throw new IllegalArgumentException("El evento asociado a la inscripción no fue encontrado.");
+    }
+
+    // 3. Validar que el evento tenga un ownerId definido y coincida con el usuario autenticado
+    if (event.getOwnerId() == null || !event.getOwnerId().equals(authenticatedUserId)) {
+        throw new SecurityException("Acceso denegado: Solo el creador del evento puede aprobar o rechazar inscripciones.");
+    }
+
+    // 4. Validar que la inscripción se encuentre en estado PENDING
+    if (enrollment.getStatus() != EnrollmentStatus.PENDING) {
+        throw new IllegalStateException("La inscripción ya fue procesada anteriormente y su estado es: " + enrollment.getStatus());
+    }
+
+    // Optional: Validar que el nuevo estado sea válido (APPROVED o REJECTED)
+    if (request.getStatus() != EnrollmentStatus.APPROVED && request.getStatus() != EnrollmentStatus.REJECTED) {
+        throw new IllegalArgumentException("El nuevo estado debe ser APPROVED o REJECTED.");
+    }
+
+    // 5. Actualizar el estado de la inscripción
+    enrollment.setStatus(request.getStatus());
+    Enrollment updatedEnrollment = enrollmentRepository.save(enrollment);
+
+    // 6. Mapear y retornar la respuesta
+    return EnrollmentResponseDto.builder()
+            .enrollmentId(updatedEnrollment.getId())
+            .userId(updatedEnrollment.getUserId())
+            .eventId(updatedEnrollment.getEventId())
+            .modalityId(updatedEnrollment.getModalityId())
+            .status(updatedEnrollment.getStatus())
+            .createdAt(updatedEnrollment.getCreatedAt())
+            .build();
+}
+        
 
 
 
