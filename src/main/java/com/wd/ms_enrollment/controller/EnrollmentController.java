@@ -1,7 +1,7 @@
 package com.wd.ms_enrollment.controller;
 
-import com.wd.ms_enrollment.dto.RejectionRequest;
 import com.wd.ms_enrollment.service.EnrollmentService;
+import com.world_dance.wd_lib_common.dto.ApproveEnrollmentRequestDto;
 import com.world_dance.wd_lib_common.dto.EnrollmentRequestDto;
 import com.world_dance.wd_lib_common.dto.EnrollmentResponseDto;
 import jakarta.validation.Valid;
@@ -9,26 +9,34 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
 
-import java.util.List;
 
-@RestController
+
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/enrollments")
+@RequestMapping("/enrollments")
 public class EnrollmentController {
 
     private final EnrollmentService enrollmentService;
 
-    @PostMapping("/inscribirse")
+    @PostMapping("/enrollment")
     public ResponseEntity<EnrollmentResponseDto> registerUserToEvent(@Valid @RequestBody EnrollmentRequestDto request) {
         EnrollmentResponseDto response = enrollmentService.registerUserToEvent(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
 
+    @PatchMapping("/approve")
+    public ResponseEntity<EnrollmentResponseDto> approveOrRejectEnrollment(@Valid @RequestBody ApproveEnrollmentRequestDto request,
+        @RequestHeader("X-User-Id") Long authenticatedUserId) {
+
+        EnrollmentResponseDto response = enrollmentService.approveOrRejectEnrollment(request, authenticatedUserId);
+        return ResponseEntity.ok(response);
+    }
 
 
 
@@ -41,18 +49,6 @@ public class EnrollmentController {
 
 
 /* 
-    // RF-25 y RF-26: Inscribirse en categoría
-    @PostMapping("/event/{eventId}/category/{categoryId}")
-    //  @PreAuthorize("hasRole('PARTICIPANT')")
-    public ResponseEntity<EnrollmentResponseDto> enrollInEvent(
-            @PathVariable Long eventId,
-            @PathVariable Long categoryId,
-            @AuthenticationPrincipal Object principal
-    ) {
-        Long userId = 1L; 
-        EnrollmentResponseDto response = enrollmentService.createEnrollment(userId, eventId, categoryId);
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
-    }
 
     // RF-27: Aprobar inscripción
     @PatchMapping("/{enrollmentId}/approve")
