@@ -12,11 +12,22 @@ spring:
       host: localhost # O la IP/host donde corre Consul
       port: 8500
       discovery:
-        health-check-path: /actuator/health
+        health-check-path: /api/v1/actuator/health
         health-check-interval: 10s
         instance-id: ${spring.application.name}:${random.value}
         prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
   jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
     hibernate:
       ddl-auto: update 
     show-sql: true
@@ -32,4 +43,4 @@ server:
 
 security:
   jwt:
-    secret-key: fx3VDiOxgojN6m3+9reMeoSdyPt7JOq0Zx67hKOIrHI= # 1 día en milisegundos
+    secret-key: ${JWT_SECRET:F0bVQgRnuk6DRxooVWKaG0ndlgqEeI/4YXObXeOaR2Q=} # 1 día en milisegundos
