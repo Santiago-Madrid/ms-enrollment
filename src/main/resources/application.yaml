@@ -37,7 +37,7 @@ management:
   main:
     allow-bean-definition-overriding: true
 server:
-  port: 9092
+  port: 9093
   servlet:
     context-path: /api/v1
 
