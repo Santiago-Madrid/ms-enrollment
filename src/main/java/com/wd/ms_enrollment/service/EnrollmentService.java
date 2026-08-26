@@ -1,17 +1,26 @@
 package com.wd.ms_enrollment.service;
 
 import com.wd.ms_enrollment.client.EventCategoryClient;
+import com.wd.ms_enrollment.client.ModalityClient;
 import com.wd.ms_enrollment.repository.EnrollmentRepository;
 import com.wd.ms_enrollment.repository.UserEventRoleRepository;
 import com.world_dance.wd_lib_common.dto.ApproveEnrollmentRequestDto;
 import com.world_dance.wd_lib_common.dto.EnrollmentRequestDto;
 import com.world_dance.wd_lib_common.dto.EnrollmentResponseDto;
 import com.world_dance.wd_lib_common.dto.EventResponseDto;
+import com.world_dance.wd_lib_common.dto.HttpGlobalResponse;
+import com.world_dance.wd_lib_common.dto.ModalityResponseDto;
 import com.world_dance.wd_lib_common.entity.Enrollment;
 import com.world_dance.wd_lib_common.entity.UserEventRole;
+import com.world_dance.wd_lib_common.enums.Category;
 import com.world_dance.wd_lib_common.enums.EnrollmentStatus;
 
 import lombok.RequiredArgsConstructor;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
@@ -22,10 +31,10 @@ public class EnrollmentService {
     private final EnrollmentRepository enrollmentRepository;
     private final UserEventRoleRepository userEventRoleRepository;
     private final EventCategoryClient eventCategoryClient;
+    private final ModalityClient modalityClient;
 
     public EnrollmentResponseDto registerUserToEvent(EnrollmentRequestDto request) {
 
-        // 1. Validar que el usuario no esté inscrito previamente en esta modalidad del evento
         boolean isAlreadyEnrolled = enrollmentRepository.existsByUserIdAndEventIdAndModalityId(
                 request.getUserId(),
                 request.getEventId(),
@@ -36,7 +45,6 @@ public class EnrollmentService {
             throw new IllegalStateException("El usuario ya se encuentra inscrito en esta modalidad para el evento especificado.");
         }
 
-        // 2. Asignar el rol al usuario dentro del evento si aún no lo tiene registrado
         boolean hasRole = userEventRoleRepository.existsByUserIdAndEventIdAndRoleInEvent(
                 request.getUserId(),
                 request.getEventId(),
@@ -52,7 +60,6 @@ public class EnrollmentService {
             userEventRoleRepository.save(newRole);
         }
 
-        // 3. Crear el registro principal de la inscripción
         Enrollment newEnrollment = Enrollment.builder()
                 .userId(request.getUserId())
                 .eventId(request.getEventId())
@@ -62,7 +69,6 @@ public class EnrollmentService {
 
         Enrollment savedEnrollment = enrollmentRepository.save(newEnrollment);
 
-        // Mapear y retornar la respuesta final
         return EnrollmentResponseDto.builder()
                 .enrollmentId(savedEnrollment.getId())
                 .userId(savedEnrollment.getUserId())
@@ -74,136 +80,117 @@ public class EnrollmentService {
                 .build();
     }
 
-
-    
-
-
+    /**
+     * RF-27: Aprobar inscripción
+     * RF-28: Rechazar inscripción con justificación
+     */
     public EnrollmentResponseDto approveOrRejectEnrollment(ApproveEnrollmentRequestDto request, Long authenticatedUserId) {
 
-    // 1. Obtener la inscripción por ID
-    Enrollment enrollment = enrollmentRepository.findById(request.getEnrollmentId())
-            .orElseThrow(() -> new IllegalArgumentException("No se encontró la inscripción especificada."));
+        Enrollment enrollment = enrollmentRepository.findById(request.getEnrollmentId())
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró la inscripción especificada."));
 
-    // 2. Consultar el evento en el microservicio event-category usando OpenFeign
-    EventResponseDto event = eventCategoryClient.getEventById(enrollment.getEventId());
+        HttpGlobalResponse<EventResponseDto> eventResponse = eventCategoryClient.getEventById(enrollment.getEventId());
+        EventResponseDto event = eventResponse != null ? eventResponse.getData() : null;
 
-    if (event == null) {
-        throw new IllegalArgumentException("El evento asociado a la inscripción no fue encontrado.");
-    }
-
-    // 3. Validar que el evento tenga un ownerId definido y coincida con el usuario autenticado
-    if (event.getOwnerId() == null || !event.getOwnerId().equals(authenticatedUserId)) {
-        throw new SecurityException("Acceso denegado: Solo el creador del evento puede aprobar o rechazar inscripciones.");
-    }
-
-    // 4. Validar que la inscripción se encuentre en estado PENDING
-    if (enrollment.getStatus() != EnrollmentStatus.PENDING) {
-        throw new IllegalStateException("La inscripción ya fue procesada anteriormente y su estado es: " + enrollment.getStatus());
-    }
-
-    // Optional: Validar que el nuevo estado sea válido (APPROVED o REJECTED)
-    if (request.getStatus() != EnrollmentStatus.APPROVED && request.getStatus() != EnrollmentStatus.REJECTED) {
-        throw new IllegalArgumentException("El nuevo estado debe ser APPROVED o REJECTED.");
-    }
-
-    // 5. Actualizar el estado de la inscripción
-    enrollment.setStatus(request.getStatus());
-    Enrollment updatedEnrollment = enrollmentRepository.save(enrollment);
-
-    // 6. Mapear y retornar la respuesta
-    return EnrollmentResponseDto.builder()
-            .enrollmentId(updatedEnrollment.getId())
-            .userId(updatedEnrollment.getUserId())
-            .eventId(updatedEnrollment.getEventId())
-            .modalityId(updatedEnrollment.getModalityId())
-            .status(updatedEnrollment.getStatus())
-            .createdAt(updatedEnrollment.getCreatedAt())
-            .build();
-}
-        
-
-
-
-
-
-
-
-/* 
-    public EnrollmentService(EnrollmentRepository enrollmentRepository) {
-        this.enrollmentRepository = enrollmentRepository;
-    }
-
-    // RF-25 y RF-26: Inscribirse en categoría
-    @Transactional
-    public EnrollmentResponseDto createEnrollment(Long userId, Long eventId, Long modalityId) {
-        if (enrollmentRepository.existsByUserIdAndEventIdAndModalityId(userId, eventId, modalityId)) {
-            throw new IllegalStateException("Ya te encuentras inscrito en esta categoría para este evento.");
+        if (event == null) {
+            throw new IllegalArgumentException("El evento asociado a la inscripción no fue encontrado.");
         }
 
-        Enrollment enrollment = new Enrollment();
-        enrollment.setUserId(userId);
-        enrollment.setEventId(eventId);
-        enrollment.setModalityId(modalityId);
-        enrollment.setStatus(EnrollmentStatus.PENDING);
+        if (event.getOwnerId() == null || !event.getOwnerId().equals(authenticatedUserId)) {
+            throw new SecurityException("Acceso denegado: Solo el creador del evento puede aprobar o rechazar inscripciones.");
+        }
 
-        return convertToDto(enrollmentRepository.save(enrollment));
-    }
+        if (enrollment.getStatus() != EnrollmentStatus.PENDING) {
+            throw new IllegalStateException("La inscripción ya fue procesada anteriormente y su estado es: " + enrollment.getStatus());
+        }
 
-    // RF-27: Aprobar inscripción manual
-    @Transactional
-    public EnrollmentResponseDto approveEnrollment(Long enrollmentId) {
-        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Inscripción no encontrada con id: " + enrollmentId));
+        if (request.getStatus() != EnrollmentStatus.APPROVED && request.getStatus() != EnrollmentStatus.REJECTED) {
+            throw new IllegalArgumentException("El nuevo estado debe ser APPROVED o REJECTED.");
+        }
 
-        enrollment.setStatus(EnrollmentStatus.APPROVED);
-        enrollment.setRejectionReason(null); // Limpiamos cualquier rechazo previo si existía
-        return convertToDto(enrollmentRepository.save(enrollment));
-    }
+        if (request.getStatus() == EnrollmentStatus.REJECTED) {
+            if (request.getReason() == null || request.getReason().isBlank()) {
+                throw new IllegalArgumentException("Debe indicar una justificación para rechazar la inscripción.");
+            }
+            enrollment.setReason(request.getReason());
+        } else {
+            enrollment.setReason(null);
+        }
 
-    // RF-28: Rechazar inscripción con justificación
-    @Transactional
-    public EnrollmentResponseDto rejectEnrollment(Long enrollmentId, RejectionRequest rejectionRequest) {
-        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Inscripción no encontrada con id: " + enrollmentId));
+        enrollment.setStatus(request.getStatus());
+        Enrollment updatedEnrollment = enrollmentRepository.save(enrollment);
 
-        enrollment.setStatus(EnrollmentStatus.REJECTED);
-        enrollment.setRejectionReason(rejectionRequest.getReason());
-        return convertToDto(enrollmentRepository.save(enrollment));
-    }
-
-    // RF-29: Consultar inscritos por categoría (Para Organizadores)
-    @Transactional(readOnly = true)
-    public List<EnrollmentResponseDto> getEnrollmentsByCategory(Long modalityId) {
-        return enrollmentRepository.findByModalityId(modalityId).stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
-    }
-
-    // RF-30: Consultar inscripciones del participante autenticado
-    @Transactional(readOnly = true)
-    public List<EnrollmentResponseDto> getMyEnrollments(Long userId) {
-        return enrollmentRepository.findByUserId(userId).stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
+        return EnrollmentResponseDto.builder()
+                .enrollmentId(updatedEnrollment.getId())
+                .userId(updatedEnrollment.getUserId())
+                .eventId(updatedEnrollment.getEventId())
+                .modalityId(updatedEnrollment.getModalityId())
+                .status(updatedEnrollment.getStatus())
+                .createdAt(updatedEnrollment.getCreatedAt())
+                .build();
     }
 
     /**
-     * Método helper privado para transformar la entidad interna 
-     * al DTO común que espera tu controlador.
-     
-    private EnrollmentResponseDto convertToDto(Enrollment enrollment) {
-        EnrollmentResponseDto dto = new EnrollmentResponseDto();
-        dto.setId(enrollment.getId());
-        dto.setUserId(enrollment.getUserId());
-        dto.setEventId(enrollment.getEventId());
-        
-        // Mapeamos de forma explícita la variable modalityId al categoryId del DTO
-        dto.setCategoryId(enrollment.getModalityId());        
-        // Convertimos el Enum a String si el DTO lo maneja como String text
-        dto.setStatus(enrollment.getStatus() != null ? enrollment.getStatus().name() : null);
-        dto.setRejectionReason(enrollment.getRejectionReason());
-        
-        return dto;
+     * RF-29: Consultar inscritos por categoría (ORGANIZADOR/ADMIN).
+     */
+    public List<EnrollmentResponseDto> getEnrollmentsByCategory(Category category, Long authenticatedUserId) {
+
+        HttpGlobalResponse<List<ModalityResponseDto>> modalitiesResponse =
+                modalityClient.getModalitiesByCategory(category);
+
+        List<ModalityResponseDto> modalities = modalitiesResponse != null ? modalitiesResponse.getData() : null;
+
+        if (modalities == null || modalities.isEmpty()) {
+            return List.of();
+        }
+
+        Set<Long> uniqueEventIds = modalities.stream()
+                .map(ModalityResponseDto::getEventId)
+                .collect(Collectors.toSet());
+
+        Set<Long> ownedEventIds = new HashSet<>();
+        for (Long eventId : uniqueEventIds) {
+            HttpGlobalResponse<EventResponseDto> eventResponse = eventCategoryClient.getEventById(eventId);
+            EventResponseDto event = eventResponse != null ? eventResponse.getData() : null;
+            if (event != null && event.getOwnerId() != null && event.getOwnerId().equals(authenticatedUserId)) {
+                ownedEventIds.add(eventId);
+            }
+        }
+
+        if (ownedEventIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> allowedModalityIds = modalities.stream()
+                .filter(m -> ownedEventIds.contains(m.getEventId()))
+                .map(ModalityResponseDto::getId)
+                .toList();
+
+        List<Enrollment> enrollments = enrollmentRepository.findByModalityIdIn(allowedModalityIds);
+
+        return enrollments.stream()
+                .map(this::toResponseDto)
+                .toList();
     }
-*/
+
+    /**
+     * RF-30: Consultar mis inscripciones y sus estados (PARTICIPANTE).
+     */
+    public List<EnrollmentResponseDto> getMyEnrollments(Long userId) {
+        List<Enrollment> enrollments = enrollmentRepository.findByUserId(userId);
+        return enrollments.stream()
+                .map(this::toResponseDto)
+                .toList();
+    }
+
+    private EnrollmentResponseDto toResponseDto(Enrollment e) {
+        return EnrollmentResponseDto.builder()
+                .enrollmentId(e.getId())
+                .userId(e.getUserId())
+                .eventId(e.getEventId())
+                .modalityId(e.getModalityId())
+                .status(e.getStatus())
+                .createdAt(e.getCreatedAt())
+                .build();
+    }
 }

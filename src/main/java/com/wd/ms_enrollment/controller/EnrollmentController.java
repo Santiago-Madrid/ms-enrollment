@@ -4,19 +4,25 @@ import com.wd.ms_enrollment.service.EnrollmentService;
 import com.world_dance.wd_lib_common.dto.ApproveEnrollmentRequestDto;
 import com.world_dance.wd_lib_common.dto.EnrollmentRequestDto;
 import com.world_dance.wd_lib_common.dto.EnrollmentResponseDto;
+import com.world_dance.wd_lib_common.enums.Category;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-
-
+@RestController
 @RequiredArgsConstructor
 @RequestMapping("/enrollments")
 public class EnrollmentController {
@@ -29,67 +35,30 @@ public class EnrollmentController {
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
-
     @PatchMapping("/approve")
-    public ResponseEntity<EnrollmentResponseDto> approveOrRejectEnrollment(@Valid @RequestBody ApproveEnrollmentRequestDto request,
-        @RequestHeader("X-User-Id") Long authenticatedUserId) {
+    public ResponseEntity<EnrollmentResponseDto> approveOrRejectEnrollment(
+            @Valid @RequestBody ApproveEnrollmentRequestDto request,
+            @RequestHeader("X-User-Id") Long authenticatedUserId) {
 
         EnrollmentResponseDto response = enrollmentService.approveOrRejectEnrollment(request, authenticatedUserId);
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/category/{category}")
+    public ResponseEntity<List<EnrollmentResponseDto>> getEnrollmentsByCategory(
+            @PathVariable Category category,
+            @RequestHeader("X-User-Id") Long authenticatedUserId) {
 
-
-
-
-
-
-
-
-
-
-/* 
-
-    // RF-27: Aprobar inscripción
-    @PatchMapping("/{enrollmentId}/approve")
-    // @PreAuthorize("hasAnyRole('ORGANIZER', 'ADMIN')")
-    public ResponseEntity<EnrollmentResponseDto> approveEnrollment(@PathVariable Long enrollmentId) {
-        EnrollmentResponseDto approved = enrollmentService.approveEnrollment(enrollmentId);
-        return ResponseEntity.ok(approved);
+        List<EnrollmentResponseDto> response = enrollmentService.getEnrollmentsByCategory(category,
+                authenticatedUserId);
+        return ResponseEntity.ok(response);
     }
 
-    // RF-28: Rechazar inscripción con justificación
-    @PatchMapping("/{enrollmentId}/reject")
-    // @PreAuthorize("hasAnyRole('ORGANIZER', 'ADMIN')")
-    public ResponseEntity<EnrollmentResponseDto> rejectEnrollment(
-            @PathVariable Long enrollmentId,
-            @Valid @RequestBody RejectionRequest rejectionRequest
-    ) {
-        EnrollmentResponseDto rejected = enrollmentService.rejectEnrollment(enrollmentId, rejectionRequest);
-        return ResponseEntity.ok(rejected);
-    }
+    @GetMapping("/my")
+    public ResponseEntity<List<EnrollmentResponseDto>> getMyEnrollments(
+            @RequestHeader("X-User-Id") Long userId) {
 
-    // RF-29: Consultar inscritos por categoría (Rol ORGANIZADOR / ADMIN)
-    @GetMapping("/category/{categoryId}")
-    // @PreAuthorize("hasAnyRole('ORGANIZER', 'ADMIN', 'STAFF')")
-    public ResponseEntity<List<EnrollmentResponseDto>> getEnrollmentsByCategory(@PathVariable Long categoryId) {
-        List<EnrollmentResponseDto> list = enrollmentService.getEnrollmentsByCategory(categoryId);
-        return ResponseEntity.ok(list);
+        List<EnrollmentResponseDto> response = enrollmentService.getMyEnrollments(userId);
+        return ResponseEntity.ok(response);
     }
-
-    // RF-30: Consultar mis inscripciones y sus estados (Rol PARTICIPANTE)
-    @GetMapping("/my-enrollments")
-    // @PreAuthorize("hasRole('PARTICIPANT')") // Ya lo tienes comentado, ¡perfecto!
-    public ResponseEntity<List<EnrollmentResponseDto>> getMyEnrollments(@AuthenticationPrincipal Object principal) {
-        // Long userId = extractUserIdFromPrincipal(principal); // Comentamos temporalmente
-        Long userId = 1L; // Quemamos el ID del usuario para la prueba local
-        
-        List<EnrollmentResponseDto> list = enrollmentService.getMyEnrollments(userId);
-        return ResponseEntity.ok(list);
-    }
-
-    // private Long extractUserIdFromPrincipal(Object principal) {
-    //     return Long.valueOf(principal.toString());
-    // }
- */
 }
