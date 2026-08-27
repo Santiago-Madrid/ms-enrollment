@@ -1,5 +1,8 @@
-
 spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   application:
     name: ms-enrollment
   datasource:
@@ -7,9 +10,19 @@ spring:
     username: root
     password: admin
     driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  main:
+    allow-bean-definition-overriding: true
   cloud:
     consul:
-      host: localhost # O la IP/host donde corre Consul
+      host: localhost
       port: 8500
       discovery:
         health-check-path: /api/v1/actuator/health
@@ -26,21 +39,14 @@ management:
     health:
       show-details: always
 
-  jpa:
-    database-platform: org.hibernate.dialect.MySQLDialect
-    hibernate:
-      ddl-auto: update 
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-  main:
-    allow-bean-definition-overriding: true
 server:
   port: 9093
   servlet:
     context-path: /api/v1
+logging:
+  level:
+    org.springframework.security: DEBUG
 
 security:
   jwt:
-    secret-key: ${JWT_SECRET:F0bVQgRnuk6DRxooVWKaG0ndlgqEeI/4YXObXeOaR2Q=} # 1 día en milisegundos
+    secret-key: ${JWT_SECRET:F0bVQgRnuk6DRxooVWKaG0ndlgqEeI/4YXObXeOaR2Q=}

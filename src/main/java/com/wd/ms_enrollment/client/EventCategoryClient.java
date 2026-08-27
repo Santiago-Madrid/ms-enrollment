@@ -5,11 +5,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 import com.world_dance.wd_lib_common.dto.EventResponseDto;
+import com.world_dance.wd_lib_common.dto.HttpGlobalResponse;
 
-@FeignClient(name = "event-category-service", path = "/api/v1/events")
+@FeignClient(name = "ms-event-category", path = "/api/v1/events")
 public interface EventCategoryClient {
 
     @GetMapping("/{eventId}")
-    EventResponseDto getEventById(@PathVariable("eventId") Long eventId);
-
+    HttpGlobalResponse<EventResponseDto> getEventById(@PathVariable("eventId") Long eventId);
 }
