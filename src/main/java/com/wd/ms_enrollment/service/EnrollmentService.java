@@ -10,6 +10,7 @@ import com.world_dance.wd_lib_common.dto.EnrollmentResponseDto;
 import com.world_dance.wd_lib_common.dto.EventResponseDto;
 import com.world_dance.wd_lib_common.dto.HttpGlobalResponse;
 import com.world_dance.wd_lib_common.dto.ModalityResponseDto;
+import com.world_dance.wd_lib_common.dto.UserEventRoleResponseDto;
 import com.world_dance.wd_lib_common.entity.Enrollment;
 import com.world_dance.wd_lib_common.entity.UserEventRole;
 import com.world_dance.wd_lib_common.enums.Category;
@@ -192,5 +193,19 @@ public class EnrollmentService {
                 .status(e.getStatus())
                 .createdAt(e.getCreatedAt())
                 .build();
+    }
+
+
+    public UserEventRoleResponseDto getUserEventRole(Long userId, Long eventId) {
+        UserEventRole userEventRole = userEventRoleRepository.findByUserIdAndEventId(userId, eventId)
+            .orElseThrow(() -> new IllegalArgumentException(
+                    "El usuario no tiene un rol asignado en este evento."));
+
+        return UserEventRoleResponseDto.builder()
+            .id(userEventRole.getId())
+            .userId(userEventRole.getUserId())
+            .eventId(userEventRole.getEventId())
+            .roleInEvent(userEventRole.getRoleInEvent())
+            .build();
     }
 }
