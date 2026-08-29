@@ -4,6 +4,7 @@ import com.wd.ms_enrollment.service.EnrollmentService;
 import com.world_dance.wd_lib_common.dto.ApproveEnrollmentRequestDto;
 import com.world_dance.wd_lib_common.dto.EnrollmentRequestDto;
 import com.world_dance.wd_lib_common.dto.EnrollmentResponseDto;
+import com.world_dance.wd_lib_common.dto.UserEventRoleResponseDto;
 import com.world_dance.wd_lib_common.enums.Category;
 
 import jakarta.validation.Valid;
@@ -59,6 +60,15 @@ public class EnrollmentController {
             @RequestHeader("X-User-Id") Long userId) {
 
         List<EnrollmentResponseDto> response = enrollmentService.getMyEnrollments(userId);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/events/{eventId}/users/{userId}/role")
+    public ResponseEntity<UserEventRoleResponseDto> getUserEventRole(
+            @PathVariable Long eventId,
+            @PathVariable Long userId) {
+
+        UserEventRoleResponseDto response = enrollmentService.getUserEventRole(userId, eventId);
         return ResponseEntity.ok(response);
     }
 }
