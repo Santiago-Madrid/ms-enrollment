@@ -71,4 +71,13 @@ public class EnrollmentController {
         UserEventRoleResponseDto response = enrollmentService.getUserEventRole(userId, eventId);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<EnrollmentResponseDto> getEnrollmentById(@PathVariable Long id) {
+        EnrollmentResponseDto response = enrollmentService.getEnrollmentById(id);
+        if (response == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(response);
+    }
 }

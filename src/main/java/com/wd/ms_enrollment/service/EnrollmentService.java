@@ -184,6 +184,15 @@ public class EnrollmentService {
                 .toList();
     }
 
+    public EnrollmentResponseDto getEnrollmentById(Long id) {
+        Enrollment enrollment = enrollmentRepository.findById(id)
+                .orElse(null);
+        if (enrollment == null) {
+            return null;
+        }
+        return toResponseDto(enrollment);
+    }
+
     private EnrollmentResponseDto toResponseDto(Enrollment e) {
         return EnrollmentResponseDto.builder()
                 .enrollmentId(e.getId())
