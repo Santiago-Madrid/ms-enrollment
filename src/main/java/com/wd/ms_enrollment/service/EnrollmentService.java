@@ -152,7 +152,8 @@ public class EnrollmentService {
         for (Long eventId : uniqueEventIds) {
             HttpGlobalResponse<EventResponseDto> eventResponse = eventCategoryClient.getEventById(eventId);
             EventResponseDto event = eventResponse != null ? eventResponse.getData() : null;
-            if (event != null && event.getOwnerId() != null && event.getOwnerId().equals(authenticatedUserId)) {
+            // BYPASS TEMPORAL: Permitir que los jurados también vean los participantes
+            if (event != null) {
                 ownedEventIds.add(eventId);
             }
         }
