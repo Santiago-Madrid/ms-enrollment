@@ -63,6 +63,14 @@ public class EnrollmentController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/event/{eventId}")
+    public ResponseEntity<List<EnrollmentResponseDto>> getEnrollmentsByEvent(
+            @PathVariable Long eventId) {
+
+        List<EnrollmentResponseDto> response = enrollmentService.getEnrollmentsByEvent(eventId);
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/events/{eventId}/users/{userId}/role")
     public ResponseEntity<UserEventRoleResponseDto> getUserEventRole(
             @PathVariable Long eventId,
