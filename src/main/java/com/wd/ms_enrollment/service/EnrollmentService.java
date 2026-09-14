@@ -185,6 +185,16 @@ public class EnrollmentService {
                 .toList();
     }
 
+    /**
+     * Consultar inscritos por evento (Para uso de ms-scheduling).
+     */
+    public List<EnrollmentResponseDto> getEnrollmentsByEvent(Long eventId) {
+        List<Enrollment> enrollments = enrollmentRepository.findByEventId(eventId);
+        return enrollments.stream()
+                .map(this::toResponseDto)
+                .toList();
+    }
+
     private EnrollmentResponseDto toResponseDto(Enrollment e) {
         return EnrollmentResponseDto.builder()
                 .enrollmentId(e.getId())
