@@ -2,6 +2,7 @@ package com.wd.ms_enrollment.service;
 
 import com.wd.ms_enrollment.client.EventCategoryClient;
 import com.wd.ms_enrollment.client.ModalityClient;
+import com.wd.ms_enrollment.client.UserServiceClient;
 import com.wd.ms_enrollment.repository.EnrollmentRepository;
 import com.wd.ms_enrollment.repository.UserEventRoleRepository;
 import com.world_dance.wd_lib_common.dto.ApproveEnrollmentRequestDto;
@@ -10,12 +11,16 @@ import com.world_dance.wd_lib_common.dto.EnrollmentResponseDto;
 import com.world_dance.wd_lib_common.dto.EventResponseDto;
 import com.world_dance.wd_lib_common.dto.HttpGlobalResponse;
 import com.world_dance.wd_lib_common.dto.ModalityResponseDto;
+import com.world_dance.wd_lib_common.dto.ParticipantSummaryDto;
+import com.world_dance.wd_lib_common.dto.UserEventRoleResponseDto;
+import com.world_dance.wd_lib_common.dto.UserResponseDto;
 import com.world_dance.wd_lib_common.entity.Enrollment;
 import com.world_dance.wd_lib_common.entity.UserEventRole;
 import com.world_dance.wd_lib_common.enums.Category;
 import com.world_dance.wd_lib_common.enums.EnrollmentStatus;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashSet;
 import java.util.List;
@@ -26,13 +31,14 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EnrollmentService {
 
     private final EnrollmentRepository enrollmentRepository;
     private final UserEventRoleRepository userEventRoleRepository;
     private final EventCategoryClient eventCategoryClient;
     private final ModalityClient modalityClient;
-    private final com.wd.ms_enrollment.client.UserClient userClient;
+    private final UserServiceClient userServiceClient;
 
     public EnrollmentResponseDto registerUserToEvent(EnrollmentRequestDto request) {
 
@@ -70,16 +76,6 @@ public class EnrollmentService {
 
         Enrollment savedEnrollment = enrollmentRepository.save(newEnrollment);
 
-        String pName = null;
-        String pLastName = null;
-        try {
-            var userResp = userClient.getUserById(savedEnrollment.getUserId());
-            if (userResp != null && userResp.getBody() != null) {
-                pName = userResp.getBody().getFirstName();
-                pLastName = userResp.getBody().getLastName();
-            }
-        } catch (Exception ex) {}
-
         return EnrollmentResponseDto.builder()
                 .enrollmentId(savedEnrollment.getId())
                 .userId(savedEnrollment.getUserId())
@@ -88,8 +84,7 @@ public class EnrollmentService {
                 .roleInEvent(request.getRoleInEvent())
                 .status(savedEnrollment.getStatus())
                 .createdAt(savedEnrollment.getCreatedAt())
-                .participantName(pName)
-                .participantLastName(pLastName)
+                .participant(fetchParticipant(savedEnrollment.getUserId()))
                 .build();
     }
 
@@ -133,16 +128,6 @@ public class EnrollmentService {
         enrollment.setStatus(request.getStatus());
         Enrollment updatedEnrollment = enrollmentRepository.save(enrollment);
 
-        String pName = null;
-        String pLastName = null;
-        try {
-            var userResp = userClient.getUserById(updatedEnrollment.getUserId());
-            if (userResp != null && userResp.getBody() != null) {
-                pName = userResp.getBody().getFirstName();
-                pLastName = userResp.getBody().getLastName();
-            }
-        } catch (Exception ex) {}
-
         return EnrollmentResponseDto.builder()
                 .enrollmentId(updatedEnrollment.getId())
                 .userId(updatedEnrollment.getUserId())
@@ -150,8 +135,7 @@ public class EnrollmentService {
                 .modalityId(updatedEnrollment.getModalityId())
                 .status(updatedEnrollment.getStatus())
                 .createdAt(updatedEnrollment.getCreatedAt())
-                .participantName(pName)
-                .participantLastName(pLastName)
+                .participant(fetchParticipant(updatedEnrollment.getUserId()))
                 .build();
     }
 
@@ -177,7 +161,7 @@ public class EnrollmentService {
         for (Long eventId : uniqueEventIds) {
             HttpGlobalResponse<EventResponseDto> eventResponse = eventCategoryClient.getEventById(eventId);
             EventResponseDto event = eventResponse != null ? eventResponse.getData() : null;
-            // BYPASS TEMPORAL: Permitir que los jurados también vean los participantes
+            // BYPASS TEMPORAL: Permitir que los jurados también vean los participantes, no solo el organizador.
             if (event != null) {
                 ownedEventIds.add(eventId);
             }
@@ -200,6 +184,17 @@ public class EnrollmentService {
     }
 
     /**
+     * Consultar todas las inscripciones de un evento (uso interno, ej. ms-scheduling
+     * para generar el cronograma).
+     */
+    public List<EnrollmentResponseDto> getEnrollmentsByEvent(Long eventId) {
+        List<Enrollment> enrollments = enrollmentRepository.findByEventId(eventId);
+        return enrollments.stream()
+                .map(this::toResponseDto)
+                .toList();
+    }
+
+    /**
      * RF-30: Consultar mis inscripciones y sus estados (PARTICIPANTE).
      */
     public List<EnrollmentResponseDto> getMyEnrollments(Long userId) {
@@ -210,16 +205,6 @@ public class EnrollmentService {
     }
 
     private EnrollmentResponseDto toResponseDto(Enrollment e) {
-        String pName = null;
-        String pLastName = null;
-        try {
-            var userResp = userClient.getUserById(e.getUserId());
-            if (userResp != null && userResp.getBody() != null) {
-                pName = userResp.getBody().getFirstName();
-                pLastName = userResp.getBody().getLastName();
-            }
-        } catch (Exception ex) {}
-
         return EnrollmentResponseDto.builder()
                 .enrollmentId(e.getId())
                 .userId(e.getUserId())
@@ -227,8 +212,40 @@ public class EnrollmentService {
                 .modalityId(e.getModalityId())
                 .status(e.getStatus())
                 .createdAt(e.getCreatedAt())
-                .participantName(pName)
-                .participantLastName(pLastName)
+                .participant(fetchParticipant(e.getUserId()))
                 .build();
+    }
+
+    private ParticipantSummaryDto fetchParticipant(Long userId) {
+        try {
+            UserResponseDto user = userServiceClient.getUserById(userId);
+            if (user == null) {
+                return null;
+            }
+            return ParticipantSummaryDto.builder()
+                    .id(user.getId())
+                    .name(user.getFirstName())
+                    .lastName(user.getLastName())
+                    .email(user.getEmail())
+                    .documentNumber(user.getDocumentNumber())
+                    .build();
+        } catch (Exception ex) {
+            log.warn("No se pudo obtener el participante (userId {}) desde ms-auth-identityservice: {}", userId, ex.getMessage());
+            return null;
+        }
+    }
+
+
+    public UserEventRoleResponseDto getUserEventRole(Long userId, Long eventId) {
+        UserEventRole userEventRole = userEventRoleRepository.findByUserIdAndEventId(userId, eventId)
+            .orElseThrow(() -> new IllegalArgumentException(
+                    "El usuario no tiene un rol asignado en este evento."));
+
+        return UserEventRoleResponseDto.builder()
+            .id(userEventRole.getId())
+            .userId(userEventRole.getUserId())
+            .eventId(userEventRole.getEventId())
+            .roleInEvent(userEventRole.getRoleInEvent())
+            .build();
     }
 }
