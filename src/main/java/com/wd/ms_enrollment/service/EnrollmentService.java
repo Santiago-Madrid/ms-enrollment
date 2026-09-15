@@ -18,6 +18,8 @@ import com.world_dance.wd_lib_common.entity.Enrollment;
 import com.world_dance.wd_lib_common.entity.UserEventRole;
 import com.world_dance.wd_lib_common.enums.Category;
 import com.world_dance.wd_lib_common.enums.EnrollmentStatus;
+import com.world_dance.wd_lib_common.enums.EventRole;
+import com.world_dance.wd_lib_common.exception.BadRequestException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +29,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -39,6 +42,9 @@ public class EnrollmentService {
     private final EventCategoryClient eventCategoryClient;
     private final ModalityClient modalityClient;
     private final UserServiceClient userServiceClient;
+
+    @Value("${wd.agent.email:}")
+    private String agentEmail;
 
     public EnrollmentResponseDto registerUserToEvent(EnrollmentRequestDto request) {
 
@@ -247,5 +253,62 @@ public class EnrollmentService {
             .eventId(userEventRole.getEventId())
             .roleInEvent(userEventRole.getRoleInEvent())
             .build();
+    }
+
+    /**
+     * Asigna el rol ADMIN a un usuario (ej. la cuenta del agente de IA) en un
+     * evento. Solo lo puede hacer el dueño del evento. Es idempotente: si el
+     * usuario ya tiene ADMIN en ese evento, devuelve el rol existente en vez
+     * de duplicarlo.
+     */
+    public UserEventRoleResponseDto assignAdminRole(Long eventId, Long targetUserId, Long authenticatedUserId) {
+        HttpGlobalResponse<EventResponseDto> eventResponse = eventCategoryClient.getEventById(eventId);
+        EventResponseDto event = eventResponse != null ? eventResponse.getData() : null;
+
+        if (event == null) {
+            throw new BadRequestException("El evento especificado no fue encontrado.");
+        }
+
+        if (event.getOwnerId() == null || !event.getOwnerId().equals(authenticatedUserId)) {
+            throw new SecurityException("Acceso denegado: solo el dueño del evento puede asignar el rol ADMIN.");
+        }
+
+        UserEventRole role = userEventRoleRepository
+                .findByUserIdAndEventIdAndRoleInEvent(targetUserId, eventId, EventRole.ADMIN)
+                .orElseGet(() -> userEventRoleRepository.save(UserEventRole.builder()
+                        .userId(targetUserId)
+                        .eventId(eventId)
+                        .roleInEvent(EventRole.ADMIN)
+                        .build()));
+
+        return UserEventRoleResponseDto.builder()
+                .id(role.getId())
+                .userId(role.getUserId())
+                .eventId(role.getEventId())
+                .roleInEvent(role.getRoleInEvent())
+                .build();
+    }
+
+    /**
+     * Activa al agente de IA como ADMIN de un evento sin necesitar su userId a
+     * mano: resuelve la cuenta por el email configurado (WD_AGENT_EMAIL) y
+     * reutiliza assignAdminRole. Solo lo puede hacer el dueño del evento.
+     */
+    public UserEventRoleResponseDto activateAgentForEvent(Long eventId, Long authenticatedUserId) {
+        if (agentEmail == null || agentEmail.isBlank()) {
+            throw new BadRequestException("No hay una cuenta de agente de IA configurada (WD_AGENT_EMAIL).");
+        }
+
+        UserResponseDto agentUser;
+        try {
+            agentUser = userServiceClient.getUserByEmail(agentEmail);
+        } catch (Exception e) {
+            throw new BadRequestException("No se pudo resolver la cuenta del agente de IA (" + agentEmail + "): " + e.getMessage());
+        }
+        if (agentUser == null || agentUser.getId() == null) {
+            throw new BadRequestException("No se encontró la cuenta del agente de IA (" + agentEmail + ").");
+        }
+
+        return assignAdminRole(eventId, agentUser.getId(), authenticatedUserId);
     }
 }

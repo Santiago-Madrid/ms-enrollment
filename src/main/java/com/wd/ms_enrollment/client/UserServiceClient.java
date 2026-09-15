@@ -3,6 +3,7 @@ package com.wd.ms_enrollment.client;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import com.world_dance.wd_lib_common.dto.UserResponseDto;
 
@@ -11,4 +12,7 @@ public interface UserServiceClient {
 
     @GetMapping("/{userId}")
     UserResponseDto getUserById(@PathVariable("userId") Long userId);
+
+    @GetMapping("/by-email")
+    UserResponseDto getUserByEmail(@RequestParam("email") String email);
 }

@@ -50,3 +50,7 @@ logging:
 security:
   jwt:
     secret-key: ${JWT_SECRET:F0bVQgRnuk6DRxooVWKaG0ndlgqEeI/4YXObXeOaR2Q=}
+
+wd:
+  agent:
+    email: ${WD_AGENT_EMAIL:}
