@@ -2,6 +2,7 @@ package com.wd.ms_enrollment.service;
 
 import com.wd.ms_enrollment.client.EventCategoryClient;
 import com.wd.ms_enrollment.client.ModalityClient;
+import com.wd.ms_enrollment.client.UserServiceClient;
 import com.wd.ms_enrollment.repository.EnrollmentRepository;
 import com.wd.ms_enrollment.repository.UserEventRoleRepository;
 import com.world_dance.wd_lib_common.dto.ApproveEnrollmentRequestDto;
@@ -10,13 +11,16 @@ import com.world_dance.wd_lib_common.dto.EnrollmentResponseDto;
 import com.world_dance.wd_lib_common.dto.EventResponseDto;
 import com.world_dance.wd_lib_common.dto.HttpGlobalResponse;
 import com.world_dance.wd_lib_common.dto.ModalityResponseDto;
+import com.world_dance.wd_lib_common.dto.ParticipantSummaryDto;
 import com.world_dance.wd_lib_common.dto.UserEventRoleResponseDto;
+import com.world_dance.wd_lib_common.dto.UserResponseDto;
 import com.world_dance.wd_lib_common.entity.Enrollment;
 import com.world_dance.wd_lib_common.entity.UserEventRole;
 import com.world_dance.wd_lib_common.enums.Category;
 import com.world_dance.wd_lib_common.enums.EnrollmentStatus;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashSet;
 import java.util.List;
@@ -27,12 +31,14 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EnrollmentService {
 
     private final EnrollmentRepository enrollmentRepository;
     private final UserEventRoleRepository userEventRoleRepository;
     private final EventCategoryClient eventCategoryClient;
     private final ModalityClient modalityClient;
+    private final UserServiceClient userServiceClient;
 
     public EnrollmentResponseDto registerUserToEvent(EnrollmentRequestDto request) {
 
@@ -176,6 +182,17 @@ public class EnrollmentService {
     }
 
     /**
+     * Consultar todas las inscripciones de un evento (uso interno, ej. ms-scheduling
+     * para generar el cronograma).
+     */
+    public List<EnrollmentResponseDto> getEnrollmentsByEvent(Long eventId) {
+        List<Enrollment> enrollments = enrollmentRepository.findByEventId(eventId);
+        return enrollments.stream()
+                .map(this::toResponseDto)
+                .toList();
+    }
+
+    /**
      * RF-30: Consultar mis inscripciones y sus estados (PARTICIPANTE).
      */
     public List<EnrollmentResponseDto> getMyEnrollments(Long userId) {
@@ -193,7 +210,27 @@ public class EnrollmentService {
                 .modalityId(e.getModalityId())
                 .status(e.getStatus())
                 .createdAt(e.getCreatedAt())
+                .participant(fetchParticipant(e.getUserId()))
                 .build();
+    }
+
+    private ParticipantSummaryDto fetchParticipant(Long userId) {
+        try {
+            UserResponseDto user = userServiceClient.getUserById(userId);
+            if (user == null) {
+                return null;
+            }
+            return ParticipantSummaryDto.builder()
+                    .id(user.getId())
+                    .name(user.getFirstName())
+                    .lastName(user.getLastName())
+                    .email(user.getEmail())
+                    .documentNumber(user.getDocumentNumber())
+                    .build();
+        } catch (Exception ex) {
+            log.warn("No se pudo obtener el participante (userId {}) desde ms-auth-identityservice: {}", userId, ex.getMessage());
+            return null;
+        }
     }
 
 

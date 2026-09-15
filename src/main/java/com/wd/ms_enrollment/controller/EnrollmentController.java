@@ -63,12 +63,26 @@ public class EnrollmentController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/event/{eventId}")
+    public ResponseEntity<List<EnrollmentResponseDto>> getEnrollmentsByEvent(@PathVariable Long eventId) {
+        List<EnrollmentResponseDto> response = enrollmentService.getEnrollmentsByEvent(eventId);
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/events/{eventId}/users/{userId}/role")
     public ResponseEntity<UserEventRoleResponseDto> getUserEventRole(
             @PathVariable Long eventId,
             @PathVariable Long userId) {
 
-        UserEventRoleResponseDto response = enrollmentService.getUserEventRole(userId, eventId);
-        return ResponseEntity.ok(response);
+        try {
+            UserEventRoleResponseDto response = enrollmentService.getUserEventRole(userId, eventId);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            // Que el usuario no tenga un rol asignado en este evento es un resultado válido de la
+            // consulta, no un fallo del servidor: 404 en vez de dejar que se propague como 500.
+            // Los consumidores (ej. ms-notification-streaming.validateAdminPermission) ya tratan
+            // cualquier 404 de este endpoint como "sin rol" y siguen con el siguiente chequeo.
+            return ResponseEntity.notFound().build();
+        }
     }
 }
