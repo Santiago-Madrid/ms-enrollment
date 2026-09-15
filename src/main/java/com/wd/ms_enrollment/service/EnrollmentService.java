@@ -84,6 +84,7 @@ public class EnrollmentService {
                 .roleInEvent(request.getRoleInEvent())
                 .status(savedEnrollment.getStatus())
                 .createdAt(savedEnrollment.getCreatedAt())
+                .participant(fetchParticipant(savedEnrollment.getUserId()))
                 .build();
     }
 
@@ -134,6 +135,7 @@ public class EnrollmentService {
                 .modalityId(updatedEnrollment.getModalityId())
                 .status(updatedEnrollment.getStatus())
                 .createdAt(updatedEnrollment.getCreatedAt())
+                .participant(fetchParticipant(updatedEnrollment.getUserId()))
                 .build();
     }
 
