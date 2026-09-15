@@ -32,6 +32,7 @@ public class EnrollmentService {
     private final UserEventRoleRepository userEventRoleRepository;
     private final EventCategoryClient eventCategoryClient;
     private final ModalityClient modalityClient;
+    private final com.wd.ms_enrollment.client.UserClient userClient;
 
     public EnrollmentResponseDto registerUserToEvent(EnrollmentRequestDto request) {
 
@@ -69,6 +70,16 @@ public class EnrollmentService {
 
         Enrollment savedEnrollment = enrollmentRepository.save(newEnrollment);
 
+        String pName = null;
+        String pLastName = null;
+        try {
+            var userResp = userClient.getUserById(savedEnrollment.getUserId());
+            if (userResp != null && userResp.getBody() != null) {
+                pName = userResp.getBody().getFirstName();
+                pLastName = userResp.getBody().getLastName();
+            }
+        } catch (Exception ex) {}
+
         return EnrollmentResponseDto.builder()
                 .enrollmentId(savedEnrollment.getId())
                 .userId(savedEnrollment.getUserId())
@@ -77,6 +88,8 @@ public class EnrollmentService {
                 .roleInEvent(request.getRoleInEvent())
                 .status(savedEnrollment.getStatus())
                 .createdAt(savedEnrollment.getCreatedAt())
+                .participantName(pName)
+                .participantLastName(pLastName)
                 .build();
     }
 
@@ -120,6 +133,16 @@ public class EnrollmentService {
         enrollment.setStatus(request.getStatus());
         Enrollment updatedEnrollment = enrollmentRepository.save(enrollment);
 
+        String pName = null;
+        String pLastName = null;
+        try {
+            var userResp = userClient.getUserById(updatedEnrollment.getUserId());
+            if (userResp != null && userResp.getBody() != null) {
+                pName = userResp.getBody().getFirstName();
+                pLastName = userResp.getBody().getLastName();
+            }
+        } catch (Exception ex) {}
+
         return EnrollmentResponseDto.builder()
                 .enrollmentId(updatedEnrollment.getId())
                 .userId(updatedEnrollment.getUserId())
@@ -127,6 +150,8 @@ public class EnrollmentService {
                 .modalityId(updatedEnrollment.getModalityId())
                 .status(updatedEnrollment.getStatus())
                 .createdAt(updatedEnrollment.getCreatedAt())
+                .participantName(pName)
+                .participantLastName(pLastName)
                 .build();
     }
 
@@ -185,6 +210,16 @@ public class EnrollmentService {
     }
 
     private EnrollmentResponseDto toResponseDto(Enrollment e) {
+        String pName = null;
+        String pLastName = null;
+        try {
+            var userResp = userClient.getUserById(e.getUserId());
+            if (userResp != null && userResp.getBody() != null) {
+                pName = userResp.getBody().getFirstName();
+                pLastName = userResp.getBody().getLastName();
+            }
+        } catch (Exception ex) {}
+
         return EnrollmentResponseDto.builder()
                 .enrollmentId(e.getId())
                 .userId(e.getUserId())
@@ -192,6 +227,8 @@ public class EnrollmentService {
                 .modalityId(e.getModalityId())
                 .status(e.getStatus())
                 .createdAt(e.getCreatedAt())
+                .participantName(pName)
+                .participantLastName(pLastName)
                 .build();
     }
 }
