@@ -69,6 +69,25 @@ public class EnrollmentController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/event/{eventId}/admins/{userId}")
+    public ResponseEntity<UserEventRoleResponseDto> assignAdminRole(
+            @PathVariable Long eventId,
+            @PathVariable Long userId,
+            @RequestHeader("X-User-Id") Long authenticatedUserId) {
+
+        UserEventRoleResponseDto response = enrollmentService.assignAdminRole(eventId, userId, authenticatedUserId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/event/{eventId}/agent-admin")
+    public ResponseEntity<UserEventRoleResponseDto> activateAgentForEvent(
+            @PathVariable Long eventId,
+            @RequestHeader("X-User-Id") Long authenticatedUserId) {
+
+        UserEventRoleResponseDto response = enrollmentService.activateAgentForEvent(eventId, authenticatedUserId);
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/events/{eventId}/users/{userId}/role")
     public ResponseEntity<UserEventRoleResponseDto> getUserEventRole(
             @PathVariable Long eventId,
