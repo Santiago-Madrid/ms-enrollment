@@ -18,6 +18,7 @@ import com.world_dance.wd_lib_common.entity.Enrollment;
 import com.world_dance.wd_lib_common.entity.UserEventRole;
 import com.world_dance.wd_lib_common.enums.Category;
 import com.world_dance.wd_lib_common.enums.EnrollmentStatus;
+import com.world_dance.wd_lib_common.exception.ResourceNotFoundException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -200,6 +201,16 @@ public class EnrollmentService {
         return enrollments.stream()
                 .map(this::toResponseDto)
                 .toList();
+    }
+
+    /**
+     * Consultar una inscripción puntual por su id (uso interno, ej. ms-music-media vía
+     * EnrollmentFeignClient para validar la inscripción antes de subir/descargar la pista musical).
+     */
+    public EnrollmentResponseDto getEnrollmentById(Long enrollmentId) {
+        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontró la inscripción con el id: " + enrollmentId));
+        return toResponseDto(enrollment);
     }
 
     private EnrollmentResponseDto toResponseDto(Enrollment e) {
