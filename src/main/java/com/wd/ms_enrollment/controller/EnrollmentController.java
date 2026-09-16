@@ -69,6 +69,16 @@ public class EnrollmentController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Consultar una inscripción por id. La usa internamente ms-music-media (EnrollmentFeignClient)
+     * para validar la inscripción antes de subir/descargar la pista musical.
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<EnrollmentResponseDto> getEnrollmentById(@PathVariable Long id) {
+        EnrollmentResponseDto response = enrollmentService.getEnrollmentById(id);
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/event/{eventId}/admins/{userId}")
     public ResponseEntity<UserEventRoleResponseDto> assignAdminRole(
             @PathVariable Long eventId,

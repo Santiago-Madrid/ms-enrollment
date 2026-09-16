@@ -210,6 +210,16 @@ public class EnrollmentService {
                 .toList();
     }
 
+    /**
+     * Consultar una inscripción puntual por su id (uso interno, ej. ms-music-media vía
+     * EnrollmentFeignClient para validar la inscripción antes de subir/descargar la pista musical).
+     */
+    public EnrollmentResponseDto getEnrollmentById(Long enrollmentId) {
+        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
+                .orElseThrow(() -> new BadRequestException("No se encontró la inscripción con el id: " + enrollmentId));
+        return toResponseDto(enrollment);
+    }
+
     private EnrollmentResponseDto toResponseDto(Enrollment e) {
         return EnrollmentResponseDto.builder()
                 .enrollmentId(e.getId())
