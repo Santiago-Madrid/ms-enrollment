@@ -10,7 +10,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface UserEventRoleRepository extends JpaRepository<UserEventRole, Long> {
-    boolean existsByUserIdAndEventIdAndRoleInEvent(Long userId, Long eventId, EventRole eventRole);
     Optional<UserEventRole> findByUserIdAndEventId(Long userId, Long eventId);
     Optional<UserEventRole> findByUserIdAndEventIdAndRoleInEvent(Long userId, Long eventId, EventRole eventRole);
 }
