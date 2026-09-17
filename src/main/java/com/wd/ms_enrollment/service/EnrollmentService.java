@@ -47,15 +47,11 @@ public class EnrollmentService {
     private String agentEmail;
 
     public EnrollmentResponseDto registerUserToEvent(EnrollmentRequestDto request) {
-
         boolean isAlreadyEnrolled = enrollmentRepository.existsByUserIdAndEventIdAndModalityId(
-                request.getUserId(),
-                request.getEventId(),
-                request.getModalityId()
-        );
+                request.getUserId(), request.getEventId(), request.getModalityId());
 
         if (isAlreadyEnrolled) {
-            throw new IllegalStateException("El usuario ya se encuentra inscrito en esta modalidad para el evento especificado.");
+            throw new com.world_dance.wd_lib_common.exception.BadRequestException("El usuario ya está inscrito en esta modalidad del evento.");
         }
 
         boolean hasRole = userEventRoleRepository.existsByUserIdAndEventIdAndRoleInEvent(
