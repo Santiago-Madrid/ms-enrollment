@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -51,30 +52,18 @@ public class EnrollmentService {
                 request.getUserId(), request.getEventId(), request.getModalityId());
 
         if (isAlreadyEnrolled) {
-            String roleName = userEventRoleRepository.findByUserIdAndEventId(request.getUserId(), request.getEventId())
-                    .map(role -> {
-                        switch (role.getRoleInEvent().name()) {
-                            case "ADMIN": return "Administrador";
-                            case "JURY": return "Jurado";
-                            case "STAFF": return "Staff";
-                            case "PARTICIPANT": return "Participante";
-                            case "INSTRUCTOR": return "Instructor";
-                            default: return role.getRoleInEvent().name();
-                        }
-                    })
-                    .orElse("Participante");
-
-            throw new com.world_dance.wd_lib_common.exception.BadRequestException(
-                "No puedes inscribirte a este evento, ya estas incrito como " + roleName);
+            throw new BadRequestException("Ya estás inscrito en esta modalidad/categoría.");
         }
 
-        boolean hasRole = userEventRoleRepository.existsByUserIdAndEventIdAndRoleInEvent(
-                request.getUserId(),
-                request.getEventId(),
-                request.getRoleInEvent()
-        );
+        Optional<UserEventRole> existingRole = userEventRoleRepository.findByUserIdAndEventId(
+                request.getUserId(), request.getEventId());
 
-        if (!hasRole) {
+        if (existingRole.isPresent() && existingRole.get().getRoleInEvent() != request.getRoleInEvent()) {
+            throw new BadRequestException(
+                "Ya estás inscrito en este evento como " + roleLabel(existingRole.get().getRoleInEvent()) + ".");
+        }
+
+        if (existingRole.isEmpty()) {
             UserEventRole newRole = UserEventRole.builder()
                     .userId(request.getUserId())
                     .eventId(request.getEventId())
@@ -240,6 +229,16 @@ public class EnrollmentService {
                 .createdAt(e.getCreatedAt())
                 .participant(fetchParticipant(e.getUserId()))
                 .build();
+    }
+
+    private String roleLabel(EventRole role) {
+        return switch (role) {
+            case ADMIN -> "Administrador";
+            case JURY -> "Jurado";
+            case STAFF -> "Staff";
+            case PARTICIPANT -> "Participante";
+            case INSTRUCTOR -> "Instructor";
+        };
     }
 
     private ParticipantSummaryDto fetchParticipant(Long userId) {
