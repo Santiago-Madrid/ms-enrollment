@@ -109,8 +109,12 @@ public class EnrollmentService {
             throw new IllegalArgumentException("El evento asociado a la inscripción no fue encontrado.");
         }
 
-        if (event.getOwnerId() == null || !event.getOwnerId().equals(authenticatedUserId)) {
-            throw new SecurityException("Acceso denegado: Solo el creador del evento puede aprobar o rechazar inscripciones.");
+        boolean isOwner = event.getOwnerId() != null && event.getOwnerId().equals(authenticatedUserId);
+        boolean isAdmin = authenticatedUserId != null && userEventRoleRepository
+                .findByUserIdAndEventIdAndRoleInEvent(authenticatedUserId, enrollment.getEventId(), EventRole.ADMIN)
+                .isPresent();
+        if (!isOwner && !isAdmin) {
+            throw new SecurityException("Acceso denegado: solo el creador del evento o un ADMIN del mismo puede aprobar o rechazar inscripciones.");
         }
 
         if (enrollment.getStatus() != EnrollmentStatus.PENDING) {
